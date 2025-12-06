@@ -1,0 +1,91 @@
+[project]
+name = "app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyright>=1.1.407",
+    "pytest>=9.0.1",
+    "ruff>=0.14.8",
+]
+
+[tool.pyright]
+include = ["src", "tests"]
+exclude = [".venv", "**/__pycache__"]
+pythonVersion = "3.12"
+pythonPlatform = "All"
+typeCheckingMode = "strict"
+
+# Type checking behavior
+strictParameterNoneValue = false
+
+# 重要なエラー（必ずエラーとして報告）
+reportMissingImports = "error"
+reportIncompatibleMethodOverride = "error"
+reportIncompatibleVariableOverride = "error"
+reportOverlappingOverload = "error"
+reportUnusedCoroutine = "error"
+reportMatchNotExhaustive = "error"
+reportUnusedImport = "error"
+reportDuplicateImport = "error"
+
+# 開発時に役立つ警告レベル
+reportUnusedClass = "warning"
+reportUnusedFunction = "warning"
+reportUnusedVariable = "warning"
+reportInconsistentConstructor = "warning"
+reportUninitializedInstanceVariable = "warning"
+reportUnnecessaryIsInstance = "warning"
+reportUnnecessaryCast = "warning"
+reportUnnecessaryComparison = "warning"
+reportUnnecessaryTypeIgnoreComment = "warning"
+
+# 開発を妨げない程度に無効化
+reportMissingTypeStubs = "none"
+reportMissingSuperCall = "none"
+reportPrivateUsage = "none"
+reportImplicitStringConcatenation = "none"
+reportInvalidStubStatement = "none"
+reportIncompleteStub = "none"
+reportUnsupportedDunderAll = "none"
+
+[tool.ruff.lint]
+exclude = [".venv"]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "RUF",    # Ruff-specific rules
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "PL",     # Pylint
+]
+ignore = [
+    "B007",
+    "C401",
+    "C408",
+    "F821",
+    "F841",
+    "G004",
+    "T201",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    "RUF012",
+    "PTH123",
+    "PERF203",
+    "PERF401",
+    "PLC0206",
+    "PLC2401",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR2004",
+    "PLW2901",
+    "SIM108",
+]
