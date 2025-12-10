@@ -3,25 +3,13 @@ Alembic environment configuration for database migrations.
 """
 
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
+
 from alembic import context
+from sqlalchemy import engine_from_config, pool
+from src.config import Config
 
 # Import Base and all models to ensure they're registered
 from src.database import Base
-from src.models import (
-    Ticker,
-    DailyPrice,
-    CollectionJob,
-    Watchlist,
-    WatchlistTicker,
-    CollectionSchedule,
-    FundamentalData,
-    EarningsData,
-    FinancialStatement,
-    AnalystRating,
-    NewsArticle,
-)
-from src.config import Config
 
 # Alembic Config object
 config = context.config
