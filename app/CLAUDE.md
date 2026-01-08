@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**ユーザへの回答はすべて日本語ですること**
+
 ## 本システムの目的
 
 日本株式データの取得・分析を通じて株式投資の最適化を目的としたシステム。

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import date
-from typing import List, Optional, cast
+from typing import List, Optional
 
 import pandas as pd
 
@@ -26,9 +26,7 @@ class StrategyBacktestResult:
         """BUYシグナル総数"""
         if self.signals_df is None or len(self.signals_df) == 0:
             return 0
-        buy_signals = cast(
-            "pd.DataFrame", self.signals_df[self.signals_df["signal"] == "BUY"]
-        )
+        buy_signals = self.signals_df[self.signals_df["signal"] == "BUY"]
         return len(buy_signals)
 
     @property
