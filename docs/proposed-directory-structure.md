@@ -279,14 +279,13 @@ class Signal:
 
 ```python
 # domain/ports/price_repository.py
-from abc import ABC, abstractmethod
+from typing import Protocol
 from datetime import date
 import pandas as pd
 
-class PriceRepository(ABC):
+class PriceRepository(Protocol):
     """価格データリポジトリのインターフェース"""
 
-    @abstractmethod
     def get_daily_prices(
         self,
         symbol: str,
@@ -294,25 +293,24 @@ class PriceRepository(ABC):
         end_date: date
     ) -> pd.DataFrame:
         """日足データを取得"""
-        pass
+        ...
 
-    @abstractmethod
     def save_daily_prices(
         self,
         symbol: str,
         data: pd.DataFrame
     ) -> None:
         """日足データを保存"""
-        pass
+        ...
 ```
 
 ```python
 # infrastructure/persistence/repositories/price_repository.py
-from domain.ports.price_repository import PriceRepository
+# 注: Protocolは構造的部分型のため継承不要
 from infrastructure.persistence.database import get_session
 
-class PostgresPriceRepository(PriceRepository):
-    """PostgreSQL実装"""
+class PostgresPriceRepository:
+    """PostgreSQL実装 - PriceRepository Protocolに構造的に適合"""
 
     def get_daily_prices(self, symbol: str, start_date: date, end_date: date) -> pd.DataFrame:
         with get_session() as session:
