@@ -278,3 +278,225 @@ class TestCollectDataHandler:
             symbol="AAPL", name=None
         )
         assert result.saved_records["AAPL"] == 1
+
+
+class TestCollectDataHandlerWithHistoricalData:
+    """Test cases for CollectDataHandler with historical data integration."""
+
+    def test_uses_historical_data_for_indicator_calculation(self) -> None:
+        """Test that historical data is used when calculating indicators."""
+        # Arrange
+        mock_data_source = MagicMock()
+        mock_repository = MagicMock()
+        mock_indicator_service = MagicMock()
+        mock_ticker = MagicMock()
+        mock_ticker.ticker_id = 1
+
+        # New data (small dataset)
+        new_df = pd.DataFrame(
+            {
+                "open": [100.0],
+                "high": [110.0],
+                "low": [95.0],
+                "close": [105.0],
+                "volume": [1000],
+            },
+            index=pd.DatetimeIndex(["2024-01-10"]),
+        )
+
+        # Historical data from DB
+        historical_df = pd.DataFrame(
+            {
+                "open": [90.0 + i for i in range(5)],
+                "high": [100.0 + i for i in range(5)],
+                "low": [85.0 + i for i in range(5)],
+                "close": [95.0 + i for i in range(5)],
+                "volume": [900 + i * 10 for i in range(5)],
+            },
+            index=pd.DatetimeIndex(
+                ["2024-01-05", "2024-01-06", "2024-01-07", "2024-01-08", "2024-01-09"]
+            ),
+        )
+
+        mock_data_source.fetch_multiple_daily_prices.return_value = {"AAPL": new_df}
+        mock_data_source.fetch_ticker_info.return_value = {"name": "Apple"}
+        mock_repository.get_or_create_ticker.return_value = mock_ticker
+        mock_repository.get_historical_for_indicator_calculation.return_value = []
+        mock_repository.daily_prices_to_dataframe.return_value = historical_df
+        mock_repository.bulk_upsert_from_dataframe.return_value = 1
+        mock_indicator_service.get_required_lookback.return_value = 75
+
+        # Mock calculate_all to return a result with all data
+        mock_calc_result = MagicMock()
+        mock_calc_result.data = pd.concat([historical_df, new_df]).sort_index()
+        mock_indicator_service.calculate_all.return_value = mock_calc_result
+
+        handler = CollectDataHandler(
+            data_source=mock_data_source,
+            daily_price_repository=mock_repository,
+            indicator_service=mock_indicator_service,
+        )
+        command = FetchStockDataCommand(symbols=["AAPL"], period="1d")
+
+        # Act
+        result = handler.handle(command)
+
+        # Assert
+        mock_repository.get_historical_for_indicator_calculation.assert_called_once()
+        mock_repository.daily_prices_to_dataframe.assert_called_once()
+        mock_indicator_service.calculate_all.assert_called_once()
+        assert result.success_count == 1
+
+    def test_handles_no_historical_data_gracefully(self) -> None:
+        """Test that missing historical data doesn't cause errors."""
+        # Arrange
+        mock_data_source = MagicMock()
+        mock_repository = MagicMock()
+        mock_indicator_service = MagicMock()
+        mock_ticker = MagicMock()
+        mock_ticker.ticker_id = 1
+
+        new_df = pd.DataFrame(
+            {
+                "open": [100.0],
+                "high": [110.0],
+                "low": [95.0],
+                "close": [105.0],
+                "volume": [1000],
+            },
+            index=pd.DatetimeIndex(["2024-01-01"]),
+        )
+
+        # Empty historical data
+        empty_df = pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+
+        mock_data_source.fetch_multiple_daily_prices.return_value = {"AAPL": new_df}
+        mock_data_source.fetch_ticker_info.return_value = {"name": "Apple"}
+        mock_repository.get_or_create_ticker.return_value = mock_ticker
+        mock_repository.get_historical_for_indicator_calculation.return_value = []
+        mock_repository.daily_prices_to_dataframe.return_value = empty_df
+        mock_repository.bulk_upsert_from_dataframe.return_value = 1
+        mock_indicator_service.get_required_lookback.return_value = 75
+
+        mock_calc_result = MagicMock()
+        mock_calc_result.data = new_df.copy()
+        mock_indicator_service.calculate_all.return_value = mock_calc_result
+
+        handler = CollectDataHandler(
+            data_source=mock_data_source,
+            daily_price_repository=mock_repository,
+            indicator_service=mock_indicator_service,
+        )
+        command = FetchStockDataCommand(symbols=["AAPL"], period="1d")
+
+        # Act
+        result = handler.handle(command)
+
+        # Assert - should still work without errors
+        assert result.success_count == 1
+        assert result.error_count == 0
+
+    def test_backward_compatible_without_repository(self) -> None:
+        """Test that indicator calculation works without repository."""
+        # Arrange
+        mock_data_source = MagicMock()
+        mock_indicator_service = MagicMock()
+
+        new_df = pd.DataFrame(
+            {
+                "open": [100.0],
+                "high": [110.0],
+                "low": [95.0],
+                "close": [105.0],
+                "volume": [1000],
+            },
+            index=pd.DatetimeIndex(["2024-01-01"]),
+        )
+
+        mock_data_source.fetch_multiple_daily_prices.return_value = {"AAPL": new_df}
+
+        mock_calc_result = MagicMock()
+        mock_calc_result.data = new_df.copy()
+        mock_calc_result.failed_indicators = {}
+        mock_indicator_service.calculate_all.return_value = mock_calc_result
+
+        # No repository provided
+        handler = CollectDataHandler(
+            data_source=mock_data_source,
+            indicator_service=mock_indicator_service,
+        )
+        command = FetchStockDataCommand(symbols=["AAPL"], period="1d")
+
+        # Act
+        result = handler.handle(command)
+
+        # Assert - should work without repository
+        assert result.success_count == 1
+        mock_indicator_service.calculate_all.assert_called_once()
+
+    def test_only_saves_new_data_portion(self) -> None:
+        """Test that only new data is saved to database after calculation."""
+        # Arrange
+        mock_data_source = MagicMock()
+        mock_repository = MagicMock()
+        mock_indicator_service = MagicMock()
+        mock_ticker = MagicMock()
+        mock_ticker.ticker_id = 1
+
+        new_df = pd.DataFrame(
+            {
+                "open": [100.0, 101.0],
+                "high": [110.0, 111.0],
+                "low": [95.0, 96.0],
+                "close": [105.0, 106.0],
+                "volume": [1000, 1100],
+            },
+            index=pd.DatetimeIndex(["2024-01-10", "2024-01-11"]),
+        )
+
+        historical_df = pd.DataFrame(
+            {
+                "open": [90.0],
+                "high": [100.0],
+                "low": [85.0],
+                "close": [95.0],
+                "volume": [900],
+            },
+            index=pd.DatetimeIndex(["2024-01-09"]),
+        )
+
+        mock_data_source.fetch_multiple_daily_prices.return_value = {"AAPL": new_df}
+        mock_data_source.fetch_ticker_info.return_value = {"name": "Apple"}
+        mock_repository.get_or_create_ticker.return_value = mock_ticker
+        mock_repository.get_historical_for_indicator_calculation.return_value = []
+        mock_repository.daily_prices_to_dataframe.return_value = historical_df
+        mock_repository.bulk_upsert_from_dataframe.return_value = 2
+        mock_indicator_service.get_required_lookback.return_value = 75
+
+        # Combined data with indicator columns
+        combined = pd.concat([historical_df, new_df]).sort_index()
+        combined["sma_5"] = 100.0  # Mock indicator
+
+        mock_calc_result = MagicMock()
+        mock_calc_result.data = combined
+        mock_indicator_service.calculate_all.return_value = mock_calc_result
+
+        handler = CollectDataHandler(
+            data_source=mock_data_source,
+            daily_price_repository=mock_repository,
+            indicator_service=mock_indicator_service,
+        )
+        command = FetchStockDataCommand(symbols=["AAPL"], period="2d")
+
+        # Act
+        result = handler.handle(command)
+
+        # Assert
+        # The saved DataFrame should only contain 2 rows (new data)
+        call_args = mock_repository.bulk_upsert_from_dataframe.call_args
+        saved_df = call_args.kwargs.get("df")
+        if saved_df is None and len(call_args.args) > 1:
+            saved_df = call_args.args[1]
+        assert saved_df is not None
+        assert len(saved_df) == 2
+        assert result.saved_records["AAPL"] == 2

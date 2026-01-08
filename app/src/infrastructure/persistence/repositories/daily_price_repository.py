@@ -1,6 +1,7 @@
 """PostgreSQL implementation of DailyPriceRepository."""
 
 # pyright: reportAttributeAccessIssue=false, reportUnknownVariableType=false
+# pyright: reportArgumentType=false, reportUnnecessaryComparison=false
 # NOTE: SQLAlchemy ORM Column assignment and pandas iterrows() typing issues
 
 from datetime import date
@@ -219,3 +220,74 @@ class PostgresDailyPriceRepository:
             self._session.add(ticker)
             self._session.flush()
         return ticker
+
+    def get_historical_for_indicator_calculation(
+        self,
+        ticker_id: int,
+        new_data_start_date: date,
+        lookback_days: int = 75,
+    ) -> list[DailyPrice]:
+        """
+        テクニカル指標計算に必要な過去データを取得する.
+
+        new_data_start_dateより前のlookback_days分のレコードを取得。
+        日付昇順でソートして返却する。
+
+        Args:
+            ticker_id: TickerID
+            new_data_start_date: 新規データの開始日（この日は含まない）
+            lookback_days: 遡って取得する日数（デフォルト75）
+
+        Returns:
+            DailyPriceリスト（日付昇順）
+        """
+        # new_data_start_dateより前のデータをlookback_days分取得
+        results = (
+            self._session.query(DailyPrice)
+            .filter(
+                DailyPrice.ticker_id == ticker_id,
+                DailyPrice.date < new_data_start_date,
+            )
+            .order_by(DailyPrice.date.desc())
+            .limit(lookback_days)
+            .all()
+        )
+        # 日付昇順に並び替えて返却
+        return list(reversed(results))
+
+    def daily_prices_to_dataframe(
+        self,
+        daily_prices: list[DailyPrice],
+    ) -> pd.DataFrame:
+        """
+        DailyPriceリストをDataFrameに変換する.
+
+        OHLCV形式のDataFrameを返却。DatetimeIndexを設定。
+
+        Args:
+            daily_prices: DailyPriceエンティティのリスト
+
+        Returns:
+            OHLCV形式のDataFrame（DatetimeIndex）
+        """
+        if not daily_prices:
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+
+        data: list[dict[str, Any]] = []
+        for dp in daily_prices:
+            row: dict[str, Any] = {
+                "date": dp.date,
+                "open": float(dp.open),
+                "high": float(dp.high),
+                "low": float(dp.low),
+                "close": float(dp.close),
+                "volume": int(dp.volume),
+            }
+            if dp.adj_close is not None:
+                row["adj_close"] = float(dp.adj_close)
+            data.append(row)
+
+        df = pd.DataFrame(data)
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date")
+        return df

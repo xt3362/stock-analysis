@@ -112,58 +112,167 @@ class CollectDataHandler:
                     result.errors[symbol] = str(e)
                     result.error_count += 1
 
+        # Prepare ticker cache for indicator calculation and saving
+        ticker_cache: dict[str, int] = {}
+        if self._daily_price_repository and result.data:
+            ticker_cache = self._prepare_tickers(result)
+
         # Calculate technical indicators if service is available
         if self._indicator_service and result.data:
-            self._calculate_indicators(result)
+            self._calculate_indicators(result, ticker_cache)
 
         # Save to database if repository is available
         if self._daily_price_repository and result.data:
-            self._save_to_database(result)
+            self._save_to_database(result, ticker_cache)
 
         return result
 
-    def _calculate_indicators(self, result: FetchStockDataResult) -> None:
-        """全シンボルに対してテクニカル指標を計算する."""
-        if self._indicator_service is None:
-            return
-
-        for symbol, df in result.data.items():
-            try:
-                calc_result = self._indicator_service.calculate_all(df)
-                result.data[symbol] = calc_result.data
-
-                # Log any failed indicator groups (but don't treat as errors)
-                if calc_result.failed_indicators:
-                    # Optionally track partial failures
-                    pass
-
-            except Exception as e:
-                # Log warning but continue with other symbols
-                if symbol not in result.errors:
-                    result.errors[symbol] = f"Indicator calculation warning: {e}"
-
-    def _save_to_database(self, result: FetchStockDataResult) -> None:
-        """データベースに保存する."""
+    def _prepare_tickers(self, result: FetchStockDataResult) -> dict[str, int]:
+        """シンボルに対応するTickerを事前取得してキャッシュを作成する."""
+        ticker_cache: dict[str, int] = {}
         if self._daily_price_repository is None:
-            return
+            return ticker_cache
 
-        for symbol, df in result.data.items():
+        for symbol in result.data:
             try:
-                # Get or create ticker
                 ticker_info = self._get_ticker_info_safe(symbol)
                 name: str | None = None
                 if ticker_info:
                     name_value = ticker_info.get("name")
                     if isinstance(name_value, str):
                         name = name_value
+
                 ticker = self._daily_price_repository.get_or_create_ticker(
                     symbol=symbol,
                     name=name,
                 )
+                ticker_cache[symbol] = cast("int", ticker.ticker_id)
+            except Exception:
+                # Skip this symbol if ticker creation fails
+                pass
+
+        return ticker_cache
+
+    def _calculate_indicators(
+        self,
+        result: FetchStockDataResult,
+        ticker_cache: dict[str, int] | None = None,
+    ) -> None:
+        """全シンボルに対してテクニカル指標を計算する."""
+        if self._indicator_service is None:
+            return
+
+        if ticker_cache is None:
+            ticker_cache = {}
+
+        for symbol, df in result.data.items():
+            try:
+                # Use historical data if ticker_id is available
+                ticker_id = ticker_cache.get(symbol)
+                if ticker_id is not None and self._daily_price_repository is not None:
+                    result.data[symbol] = self._calculate_indicators_with_historical(
+                        new_data=df,
+                        ticker_id=ticker_id,
+                    )
+                else:
+                    # Fallback: calculate without historical data
+                    calc_result = self._indicator_service.calculate_all(df)
+                    result.data[symbol] = calc_result.data
+
+            except Exception as e:
+                # Log warning but continue with other symbols
+                if symbol not in result.errors:
+                    result.errors[symbol] = f"Indicator calculation warning: {e}"
+
+    def _calculate_indicators_with_historical(
+        self,
+        new_data: pd.DataFrame,
+        ticker_id: int,
+    ) -> pd.DataFrame:
+        """
+        既存データと結合してテクニカル指標を計算する.
+
+        Args:
+            new_data: 新規取得データ
+            ticker_id: TickerID
+
+        Returns:
+            指標計算済みDataFrame（新規データ部分のみ）
+        """
+        if self._daily_price_repository is None or self._indicator_service is None:
+            return new_data
+
+        # 1. Get required lookback period
+        lookback_days = self._indicator_service.get_required_lookback()
+
+        # 2. Determine start date of new data
+        new_data_start = new_data.index.min()
+        if hasattr(new_data_start, "date"):
+            new_data_start_date = new_data_start.date()
+        else:
+            new_data_start_date = new_data_start
+
+        # 3. Fetch historical data from DB
+        historical_prices = (
+            self._daily_price_repository.get_historical_for_indicator_calculation(
+                ticker_id=ticker_id,
+                new_data_start_date=new_data_start_date,
+                lookback_days=lookback_days,
+            )
+        )
+
+        # 4. Convert historical data to DataFrame
+        historical_df = self._daily_price_repository.daily_prices_to_dataframe(
+            historical_prices
+        )
+
+        # 5. Combine historical and new data
+        if len(historical_df) > 0:
+            combined_df = pd.concat([historical_df, new_data]).sort_index()
+            # Remove duplicates, keeping the latest data
+            combined_df = combined_df[~combined_df.index.duplicated(keep="last")]
+        else:
+            combined_df = new_data
+
+        # 6. Calculate indicators on combined data
+        calc_result = self._indicator_service.calculate_all(combined_df)
+
+        # 7. Extract only the new data portion
+        return calc_result.data.loc[new_data.index]
+
+    def _save_to_database(
+        self,
+        result: FetchStockDataResult,
+        ticker_cache: dict[str, int] | None = None,
+    ) -> None:
+        """データベースに保存する."""
+        if self._daily_price_repository is None:
+            return
+
+        if ticker_cache is None:
+            ticker_cache = {}
+
+        for symbol, df in result.data.items():
+            try:
+                # Use cached ticker_id if available
+                ticker_id = ticker_cache.get(symbol)
+                if ticker_id is None:
+                    # Fallback: get or create ticker
+                    ticker_info = self._get_ticker_info_safe(symbol)
+                    name: str | None = None
+                    if ticker_info:
+                        name_value = ticker_info.get("name")
+                        if isinstance(name_value, str):
+                            name = name_value
+                    ticker = self._daily_price_repository.get_or_create_ticker(
+                        symbol=symbol,
+                        name=name,
+                    )
+                    ticker_id = cast("int", ticker.ticker_id)
 
                 # Bulk upsert daily prices
                 saved_count = self._daily_price_repository.bulk_upsert_from_dataframe(
-                    ticker_id=cast("int", ticker.ticker_id),
+                    ticker_id=ticker_id,
                     df=df,
                 )
                 result.saved_records[symbol] = saved_count
