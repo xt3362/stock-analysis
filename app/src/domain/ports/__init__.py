@@ -2,5 +2,6 @@
 
 from src.domain.ports.stock_data_source import StockDataSource
 from src.domain.ports.ticker_repository import TickerRepository
+from src.domain.ports.universe_repository import UniverseRepository
 
-__all__ = ["StockDataSource", "TickerRepository"]
+__all__ = ["StockDataSource", "TickerRepository", "UniverseRepository"]

@@ -65,3 +65,27 @@ class IndicatorCalculationError(StockAnalysisError):
         self.indicator = indicator
         self.symbol = symbol
         super().__init__(message)
+
+
+class MarketRegimeAnalysisError(StockAnalysisError):
+    """
+    Exception raised when market regime analysis fails.
+
+    Attributes:
+        reason: The reason for the analysis failure (optional).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        reason: str | None = None,
+    ) -> None:
+        """
+        Initialize the exception.
+
+        Args:
+            message: Error message describing the failure.
+            reason: The reason for the analysis failure.
+        """
+        self.reason = reason
+        super().__init__(message)

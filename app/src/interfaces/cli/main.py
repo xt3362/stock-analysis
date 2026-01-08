@@ -2,6 +2,7 @@
 
 import typer
 
+from src.interfaces.cli.analysis_commands import app as analysis_app
 from src.interfaces.cli.data_commands import app as data_app
 
 app = typer.Typer(
@@ -11,6 +12,7 @@ app = typer.Typer(
 )
 
 app.add_typer(data_app, name="data")
+app.add_typer(analysis_app, name="analysis")
 
 
 @app.callback()

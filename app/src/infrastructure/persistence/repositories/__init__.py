@@ -6,5 +6,12 @@ from src.infrastructure.persistence.repositories.daily_price_repository import (
 from src.infrastructure.persistence.repositories.ticker_repository import (
     PostgresTickerRepository,
 )
+from src.infrastructure.persistence.repositories.universe_repository import (
+    PostgresUniverseRepository,
+)
 
-__all__ = ["PostgresDailyPriceRepository", "PostgresTickerRepository"]
+__all__ = [
+    "PostgresDailyPriceRepository",
+    "PostgresTickerRepository",
+    "PostgresUniverseRepository",
+]

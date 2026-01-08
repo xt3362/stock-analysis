@@ -10,21 +10,21 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Load .env file from project root
-_env_path = Path(__file__).resolve().parents[3] / ".env"
-load_dotenv(_env_path)
-
-from src.application.commands.collect_data import (  # noqa: E402
+from src.application.commands.collect_data import (
     CollectDataHandler,
     FetchStockDataCommand,
 )
-from src.domain.services.analysis.technical_indicators import (  # noqa: E402
+from src.domain.services.analysis.technical_indicators import (
     TechnicalIndicatorService,
 )
-from src.infrastructure.external.yahoo_finance import YahooFinanceClient  # noqa: E402
-from src.infrastructure.persistence.repositories.daily_price_repository import (  # noqa: E402
+from src.infrastructure.external.yahoo_finance import YahooFinanceClient
+from src.infrastructure.persistence.repositories.daily_price_repository import (
     PostgresDailyPriceRepository,
 )
+
+# Load .env file from project root
+_env_path = Path(__file__).resolve().parents[3] / ".env"
+load_dotenv(_env_path)
 
 app = typer.Typer(help="Data fetching and management commands")
 
