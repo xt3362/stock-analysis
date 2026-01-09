@@ -49,16 +49,14 @@ def get_db_session() -> Session:
 
 def get_all_universes(session: Session) -> list[Universe]:
     """全ユニバースを取得."""
-    return list(
-        session.query(Universe).order_by(Universe.created_at.desc()).all()
-    )
+    return list(session.query(Universe).order_by(Universe.created_at.desc()).all())
 
 
 def delete_universe(session: Session, universe_id: int) -> bool:
     """ユニバースを削除."""
-    universe = session.query(Universe).filter(
-        Universe.universe_id == universe_id
-    ).first()
+    universe = (
+        session.query(Universe).filter(Universe.universe_id == universe_id).first()
+    )
     if universe:
         session.delete(universe)
         session.commit()
@@ -112,7 +110,8 @@ def main() -> None:
         if search_query:
             query_lower = search_query.lower()
             filtered_tickers = [
-                t for t in all_tickers
+                t
+                for t in all_tickers
                 if query_lower in (t.symbol or "").lower()
                 or query_lower in (t.name or "").lower()
             ]
@@ -127,25 +126,27 @@ def main() -> None:
         # データフレーム形式で表示
         ticker_data = []
         for t in filtered_tickers[:100]:  # 最大100件表示
-            ticker_data.append({
-                "ticker_id": t.ticker_id,
-                "symbol": t.symbol,
-                "name": t.name or "",
-                "sector": t.sector or "",
-            })
+            ticker_data.append(
+                {
+                    "ticker_id": t.ticker_id,
+                    "symbol": t.symbol,
+                    "name": t.name or "",
+                    "sector": t.sector or "",
+                }
+            )
 
         if ticker_data:
             # マルチセレクト
             options = {
-                f"{t['symbol']} - {t['name']}": t["ticker_id"]
-                for t in ticker_data
+                f"{t['symbol']} - {t['name']}": t["ticker_id"] for t in ticker_data
             }
 
             selected_labels = st.multiselect(
                 "銘柄を選択",
                 options=list(options.keys()),
                 default=[
-                    label for label, tid in options.items()
+                    label
+                    for label, tid in options.items()
                     if tid in st.session_state.selected_ticker_ids
                 ],
             )

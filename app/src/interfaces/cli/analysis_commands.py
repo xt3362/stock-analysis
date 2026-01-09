@@ -356,9 +356,7 @@ def market_regime(
             raise typer.Exit(code=1)
         nikkei_df = nikkei_result
 
-        success, topix_result = _get_index_ohlcv(
-            session, TOPIX_ETF_SYMBOL, target_date
-        )
+        success, topix_result = _get_index_ohlcv(session, TOPIX_ETF_SYMBOL, target_date)
         if not success:
             typer.echo(
                 f"Error: TOPIX ETF ({TOPIX_ETF_SYMBOL}): {topix_result}",

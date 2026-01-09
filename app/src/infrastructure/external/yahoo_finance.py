@@ -5,7 +5,7 @@
 # pyright: reportArgumentType=false, reportUnknownArgumentType=false
 # NOTE: yfinance has incomplete type stubs, suppressing related errors
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -196,3 +196,99 @@ class YahooFinanceClient:
         # yfinance returns columns with various casing
         df.columns = [str(col).lower().replace(" ", "_") for col in df.columns]
         return df
+
+    def fetch_earnings_dates(
+        self,
+        symbol: str,
+        limit: int = 4,
+    ) -> list[date]:
+        """
+        決算発表日を取得する.
+
+        Args:
+            symbol: ティッカーシンボル (例: "7203.T", "AAPL")
+            limit: 取得する決算日の数（過去・未来含む）
+
+        Returns:
+            決算発表日のリスト（日付昇順）
+
+        Raises:
+            StockDataFetchError: データ取得に失敗した場合
+
+        Note:
+            yfinance の ticker.earnings_dates から取得。
+            データが存在しない銘柄では空リストを返す。
+        """
+        try:
+            ticker = yf.Ticker(symbol)
+            earnings_df = ticker.earnings_dates
+
+            if earnings_df is None or earnings_df.empty:
+                return []
+
+            # インデックスがDatetimeIndexの場合、日付に変換
+            dates: list[date] = []
+            for idx in earnings_df.index[:limit]:
+                if hasattr(idx, "date"):
+                    dates.append(idx.date())
+                elif isinstance(idx, date):
+                    dates.append(idx)
+
+            # 日付昇順でソート
+            dates.sort()
+            return dates
+
+        except Exception as e:
+            raise StockDataFetchError(
+                f"Failed to fetch earnings dates for {symbol}: {e}", symbol=symbol
+            ) from e
+
+    def fetch_dividend_info(
+        self,
+        symbol: str,
+    ) -> dict[str, Any]:
+        """
+        配当情報を取得する.
+
+        Args:
+            symbol: ティッカーシンボル (例: "7203.T", "AAPL")
+
+        Returns:
+            配当情報の辞書:
+            - ex_dividend_date: date | None - 配当権利確定日
+            - dividend_rate: float | None - 年間配当額
+            - dividend_yield: float | None - 配当利回り（小数）
+
+        Raises:
+            StockDataFetchError: データ取得に失敗した場合
+
+        Note:
+            yfinance の ticker.info から取得。
+            配当情報が存在しない銘柄ではNone値を含む辞書を返す。
+        """
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+
+            # exDividendDate は Unix timestamp で返される場合がある
+            ex_div_date: date | None = None
+            ex_div_raw = info.get("exDividendDate")
+            if ex_div_raw is not None:
+                # Unix timestamp の場合
+                if isinstance(ex_div_raw, int | float):
+                    ex_div_date = datetime.fromtimestamp(
+                        ex_div_raw, tz=timezone.utc
+                    ).date()
+                elif hasattr(ex_div_raw, "date"):
+                    ex_div_date = ex_div_raw.date()
+
+            return {
+                "ex_dividend_date": ex_div_date,
+                "dividend_rate": info.get("dividendRate"),
+                "dividend_yield": info.get("dividendYield"),
+            }
+
+        except Exception as e:
+            raise StockDataFetchError(
+                f"Failed to fetch dividend info for {symbol}: {e}", symbol=symbol
+            ) from e

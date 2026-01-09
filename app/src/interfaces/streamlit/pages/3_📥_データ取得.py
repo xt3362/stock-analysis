@@ -77,9 +77,7 @@ def get_db_session() -> Session:
 
 def get_all_universes(session: Session) -> list[Universe]:
     """全ユニバースを取得."""
-    return list(
-        session.query(Universe).order_by(Universe.created_at.desc()).all()
-    )
+    return list(session.query(Universe).order_by(Universe.created_at.desc()).all())
 
 
 def parse_symbols(input_text: str) -> list[str]:
@@ -186,7 +184,8 @@ def main() -> None:
             if search_query:
                 query_lower = search_query.lower()
                 filtered_tickers = [
-                    t for t in all_tickers
+                    t
+                    for t in all_tickers
                     if query_lower in (t.symbol or "").lower()
                     or query_lower in (t.name or "").lower()
                 ]
@@ -222,8 +221,7 @@ def main() -> None:
             st.warning("ユニバースが登録されていません")
         else:
             universe_options = {
-                f"{u.name} ({u.total_symbols}銘柄)": u.universe_id
-                for u in universes
+                f"{u.name} ({u.total_symbols}銘柄)": u.universe_id for u in universes
             }
 
             selected_universe_label = st.selectbox(

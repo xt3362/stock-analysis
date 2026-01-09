@@ -8,7 +8,9 @@ from src.infrastructure.persistence.models.analyst_rating import (
 from src.infrastructure.persistence.models.collection_job import CollectionJob
 from src.infrastructure.persistence.models.collection_schedule import CollectionSchedule
 from src.infrastructure.persistence.models.daily_price import DailyPrice
+from src.infrastructure.persistence.models.dividend_schedule import DividendSchedule
 from src.infrastructure.persistence.models.earnings_data import EarningsData
+from src.infrastructure.persistence.models.earnings_schedule import EarningsSchedule
 from src.infrastructure.persistence.models.financial_statement import (
     FinancialStatement,
     StatementType,
@@ -26,7 +28,9 @@ __all__ = [
     "CollectionJob",
     "CollectionSchedule",
     "DailyPrice",
+    "DividendSchedule",
     "EarningsData",
+    "EarningsSchedule",
     "FinancialStatement",
     "FundamentalData",
     "NewsArticle",

@@ -67,6 +67,12 @@ class Ticker(Base):
     earnings_data = relationship(
         "EarningsData", back_populates="ticker", cascade="all, delete-orphan"
     )
+    earnings_schedule = relationship(
+        "EarningsSchedule", back_populates="ticker", cascade="all, delete-orphan"
+    )
+    dividend_schedule = relationship(
+        "DividendSchedule", back_populates="ticker", cascade="all, delete-orphan"
+    )
     financial_statements = relationship(
         "FinancialStatement", back_populates="ticker", cascade="all, delete-orphan"
     )

@@ -91,9 +91,7 @@ def get_db_session() -> Session:
 
 def get_all_universes(session: Session) -> list[Universe]:
     """全ユニバースを取得."""
-    return list(
-        session.query(Universe).order_by(Universe.created_at.desc()).all()
-    )
+    return list(session.query(Universe).order_by(Universe.created_at.desc()).all())
 
 
 def get_index_prices(
@@ -218,9 +216,7 @@ def create_price_chart(
     if regimes:
         dates = [r.analysis_date for r in regimes]
         colors = [ENVIRONMENT_COLORS.get(r.environment_code, "#999") for r in regimes]
-        env_names = [
-            ENVIRONMENT_NAMES.get(r.environment_code, "不明") for r in regimes
-        ]
+        env_names = [ENVIRONMENT_NAMES.get(r.environment_code, "不明") for r in regimes]
 
         fig.add_trace(
             go.Bar(
@@ -367,10 +363,7 @@ def main() -> None:
         return
 
     # ユニバース選択UI
-    universe_options = {
-        f"{u.name} ({u.total_symbols}銘柄)": u
-        for u in universes
-    }
+    universe_options = {f"{u.name} ({u.total_symbols}銘柄)": u for u in universes}
 
     selected_label = st.sidebar.selectbox(
         "分析対象ユニバース",

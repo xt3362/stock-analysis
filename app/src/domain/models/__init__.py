@@ -9,6 +9,14 @@ This module exports:
 
 # Data Classes (domain layer)
 from src.domain.models.backtest_result import BacktestResult, PerformanceMetrics, Trade
+from src.domain.models.event_calendar import (
+    EventCalendarConfig,
+    EventCalendarResult,
+    EventInput,
+    EventRiskLevel,
+    EventType,
+    NearestEvent,
+)
 from src.domain.models.market_regime import (
     ADRDivergence,
     AdvancingDecliningRatio,
@@ -94,6 +102,11 @@ __all__ = [
     "EarningsScore",
     "EntryPlan",
     "EnvironmentCode",
+    "EventCalendarConfig",
+    "EventCalendarResult",
+    "EventInput",
+    "EventRiskLevel",
+    "EventType",
     "FinancialStatement",
     "FundamentalData",
     "MarketBreadth",
@@ -101,6 +114,7 @@ __all__ = [
     "MarketRegime",
     "MarketRegimeConfig",
     "MomentumScore",
+    "NearestEvent",
     "NewsArticle",
     "PerformanceMetrics",
     "PortfolioBacktestResult",

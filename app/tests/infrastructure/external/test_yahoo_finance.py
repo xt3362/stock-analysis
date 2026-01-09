@@ -244,3 +244,153 @@ class TestYahooFinanceClient:
         # Verify
         assert "AAPL" in result
         assert "MSFT" in result
+
+    @patch("src.infrastructure.external.yahoo_finance.yf.Ticker")
+    def test_fetch_earnings_dates_success(self, mock_ticker_class: MagicMock) -> None:
+        """Test fetching earnings dates successfully."""
+        # Setup mock
+        mock_ticker = MagicMock()
+        mock_ticker_class.return_value = mock_ticker
+        mock_earnings_df = pd.DataFrame(
+            {"EPS Estimate": [1.5, 1.6, 1.7, 1.8]},
+            index=pd.DatetimeIndex(
+                ["2024-01-15", "2024-04-15", "2024-07-15", "2024-10-15"]
+            ),
+        )
+        mock_ticker.earnings_dates = mock_earnings_df
+
+        # Execute
+        client = YahooFinanceClient()
+        result = client.fetch_earnings_dates("AAPL", limit=4)
+
+        # Verify
+        mock_ticker_class.assert_called_once_with("AAPL")
+        assert len(result) == 4
+        assert result[0] == date(2024, 1, 15)
+        assert result[-1] == date(2024, 10, 15)
+
+    @patch("src.infrastructure.external.yahoo_finance.yf.Ticker")
+    def test_fetch_earnings_dates_empty(self, mock_ticker_class: MagicMock) -> None:
+        """Test fetching earnings dates returns empty list when no data."""
+        # Setup mock
+        mock_ticker = MagicMock()
+        mock_ticker_class.return_value = mock_ticker
+        mock_ticker.earnings_dates = pd.DataFrame()
+
+        # Execute
+        client = YahooFinanceClient()
+        result = client.fetch_earnings_dates("AAPL")
+
+        # Verify
+        assert result == []
+
+    @patch("src.infrastructure.external.yahoo_finance.yf.Ticker")
+    def test_fetch_earnings_dates_none(self, mock_ticker_class: MagicMock) -> None:
+        """Test fetching earnings dates returns empty list when None."""
+        # Setup mock
+        mock_ticker = MagicMock()
+        mock_ticker_class.return_value = mock_ticker
+        mock_ticker.earnings_dates = None
+
+        # Execute
+        client = YahooFinanceClient()
+        result = client.fetch_earnings_dates("AAPL")
+
+        # Verify
+        assert result == []
+
+    @patch("src.infrastructure.external.yahoo_finance.yf.Ticker")
+    def test_fetch_earnings_dates_with_limit(
+        self, mock_ticker_class: MagicMock
+    ) -> None:
+        """Test fetching earnings dates respects limit parameter."""
+        # Setup mock
+        mock_ticker = MagicMock()
+        mock_ticker_class.return_value = mock_ticker
+        mock_earnings_df = pd.DataFrame(
+            {"EPS Estimate": [1.5, 1.6, 1.7, 1.8]},
+            index=pd.DatetimeIndex(
+                ["2024-01-15", "2024-04-15", "2024-07-15", "2024-10-15"]
+            ),
+        )
+        mock_ticker.earnings_dates = mock_earnings_df
+
+        # Execute
+        client = YahooFinanceClient()
+        result = client.fetch_earnings_dates("AAPL", limit=2)
+
+        # Verify
+        assert len(result) == 2
+
+    @patch("src.infrastructure.external.yahoo_finance.yf.Ticker")
+    def test_fetch_dividend_info_success(self, mock_ticker_class: MagicMock) -> None:
+        """Test fetching dividend info successfully."""
+        # Setup mock
+        mock_ticker = MagicMock()
+        mock_ticker_class.return_value = mock_ticker
+        mock_ticker.info = {
+            "exDividendDate": 1704067200,  # 2024-01-01 00:00:00 UTC
+            "dividendRate": 0.96,
+            "dividendYield": 0.0048,
+        }
+
+        # Execute
+        client = YahooFinanceClient()
+        result = client.fetch_dividend_info("AAPL")
+
+        # Verify
+        mock_ticker_class.assert_called_once_with("AAPL")
+        assert result["ex_dividend_date"] == date(2024, 1, 1)
+        assert result["dividend_rate"] == 0.96
+        assert result["dividend_yield"] == 0.0048
+
+    @patch("src.infrastructure.external.yahoo_finance.yf.Ticker")
+    def test_fetch_dividend_info_no_dividend(
+        self, mock_ticker_class: MagicMock
+    ) -> None:
+        """Test fetching dividend info for non-dividend stock."""
+        # Setup mock
+        mock_ticker = MagicMock()
+        mock_ticker_class.return_value = mock_ticker
+        mock_ticker.info = {}
+
+        # Execute
+        client = YahooFinanceClient()
+        result = client.fetch_dividend_info("TSLA")
+
+        # Verify
+        assert result["ex_dividend_date"] is None
+        assert result["dividend_rate"] is None
+        assert result["dividend_yield"] is None
+
+    @patch("src.infrastructure.external.yahoo_finance.yf.Ticker")
+    def test_fetch_dividend_info_error(self, mock_ticker_class: MagicMock) -> None:
+        """Test fetching dividend info raises error on failure."""
+        # Setup mock
+        mock_ticker = MagicMock()
+        mock_ticker_class.return_value = mock_ticker
+        mock_ticker.info = None
+        # Accessing None.get() will raise AttributeError
+        type(mock_ticker).info = property(
+            lambda self: (_ for _ in ()).throw(Exception("API error"))
+        )
+
+        # Execute & Verify
+        client = YahooFinanceClient()
+        with pytest.raises(StockDataFetchError, match="Failed to fetch dividend info"):
+            client.fetch_dividend_info("AAPL")
+
+    @patch("src.infrastructure.external.yahoo_finance.yf.Ticker")
+    def test_fetch_earnings_dates_error(self, mock_ticker_class: MagicMock) -> None:
+        """Test fetching earnings dates raises error on failure."""
+        # Setup mock
+        mock_ticker = MagicMock()
+        mock_ticker_class.return_value = mock_ticker
+        type(mock_ticker).earnings_dates = property(
+            lambda self: (_ for _ in ()).throw(Exception("API error"))
+        )
+
+        # Execute & Verify
+        client = YahooFinanceClient()
+        with pytest.raises(StockDataFetchError, match="Failed to fetch earnings dates"):
+            client.fetch_earnings_dates("AAPL")
