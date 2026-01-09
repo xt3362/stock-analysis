@@ -339,12 +339,6 @@ def create_adr_chart(regimes: list[MarketRegime]) -> go.Figure:
 
 def main() -> None:
     """メインアプリケーション."""
-    st.set_page_config(
-        page_title="市場レジーム分析",
-        page_icon="📊",
-        layout="wide",
-    )
-
     st.title("📊 市場レジーム分析ダッシュボード")
 
     # サイドバー
@@ -466,5 +460,5 @@ def main() -> None:
         )
 
 
-if __name__ == "__main__":
-    main()
+# ページ実行
+main()

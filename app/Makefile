@@ -13,7 +13,7 @@ test:
 check: format lint typecheck test
 
 dashboard:
-	PYTHONPATH=. uv run streamlit run src/interfaces/streamlit/market_regime_dashboard.py
+	PYTHONPATH=. uv run streamlit run src/interfaces/streamlit/app.py
 
 help:
 	@echo "Available commands:"
