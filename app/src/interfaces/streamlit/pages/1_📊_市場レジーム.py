@@ -23,6 +23,7 @@ from src.domain.models.market_regime import (
     RiskLevel,
 )
 from src.domain.services.analysis.market_regime_analyzer import MarketRegimeAnalyzer
+from src.infrastructure.persistence.models import Universe
 from src.infrastructure.persistence.repositories.daily_price_repository import (
     PostgresDailyPriceRepository,
 )
@@ -86,6 +87,13 @@ def get_db_session() -> Session:
     engine = create_engine(database_url)
     session_factory = sessionmaker(bind=engine)
     return session_factory()
+
+
+def get_all_universes(session: Session) -> list[Universe]:
+    """全ユニバースを取得."""
+    return list(
+        session.query(Universe).order_by(Universe.created_at.desc()).all()
+    )
 
 
 def get_index_prices(
@@ -351,15 +359,25 @@ def main() -> None:
         st.error(f"データベース接続エラー: {e}")
         return
 
-    # ユニバース選択
-    universe_repo = PostgresUniverseRepository(session)
-    latest_universe = universe_repo.get_latest()
+    # 全ユニバース取得
+    universes = get_all_universes(session)
 
-    if latest_universe is None:
+    if not universes:
         st.error("ユニバースが登録されていません")
         return
 
-    st.sidebar.info(f"ユニバース: {latest_universe.name}")
+    # ユニバース選択UI
+    universe_options = {
+        f"{u.name} ({u.total_symbols}銘柄)": u
+        for u in universes
+    }
+
+    selected_label = st.sidebar.selectbox(
+        "分析対象ユニバース",
+        options=list(universe_options.keys()),
+    )
+
+    selected_universe = universe_options[selected_label]
 
     # 期間選択
     col1, col2 = st.sidebar.columns(2)
@@ -384,7 +402,7 @@ def main() -> None:
     with st.spinner("分析中..."):
         regimes = analyze_period(
             session,
-            latest_universe.universe_id,
+            selected_universe.universe_id,
             start_date,
             end_date,
         )
